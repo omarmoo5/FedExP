@@ -26,8 +26,8 @@ num_participating_clients = args_required.num_participating_clients
 num_rounds = args_required.num_rounds
 alpha = args_required.alpha
 
-print_every_test = 5
-print_every_train = 5
+print_every_test = 1
+print_every_train = 1
 
 filename = "_".join(["results", str(seed), algorithm, dataset, model,
                      str(num_clients), str(num_participating_clients),
