@@ -1,3 +1,5 @@
+import pickle
+
 from util_libs import *
 
 
@@ -19,12 +21,12 @@ def getDirichletData(y, n, alpha, num_c):
         for i in range(n):
           p_client[i] = np.random.dirichlet(np.repeat(alpha,K))
 
-    
-        
+
+
         idx_batch = [[] for _ in range(n)]
-        
+
         m = int(N/n)
-        
+
         for k in range(K):
             idx_k = np.where(labelList_true == k)[0]
 
@@ -57,7 +59,7 @@ def getDirichletData(y, n, alpha, num_c):
         print('Data ratio: %s' % str(weights))
 
         return idx_batch
-    
+
 def getDirichletData_equal(y, n, alpha, num_c):
         n_nets = n
         K = num_c
@@ -75,33 +77,33 @@ def getDirichletData_equal(y, n, alpha, num_c):
 
         for i in range(n):
           p_client[i] = np.random.dirichlet(np.repeat(alpha,K))
-            
+
         p_client_cdf = np.cumsum(p_client, axis=1)
-      
-        
+
+
         idx_batch = [[] for _ in range(n)]
-        
+
         m = int(N/n)
-        
-        
+
+
         idx_labels = [np.where(labelList_true==k)[0] for k in range(K)]
 
-        
+
         idx_counter = [0 for k in range(K)]
         total_cnt = 0
-        
-        
+
+
         while(total_cnt<m*n):
-                
+
             curr_clnt = np.random.randint(n)
-            
+
             if (len(idx_batch[curr_clnt])>=m):
                 continue
 
-            
+
             total_cnt += 1
             curr_prior = p_client_cdf[curr_clnt]
-                
+
             while True:
                 cls_label = np.argmax(np.random.uniform() <= curr_prior)
                 if (idx_counter[cls_label] >= len(idx_labels[cls_label])):
@@ -133,8 +135,8 @@ def getDirichletData_equal(y, n, alpha, num_c):
         print('Data ratio: %s' % str(weights))
 
         return idx_batch
-    
-    
+
+
 
 def get_dataset(datatype, n_client, n_c, alpha, partition_equal=True):
 
@@ -146,12 +148,12 @@ def get_dataset(datatype, n_client, n_c, alpha, partition_equal=True):
 
 
     if(datatype=='CIFAR10' or datatype=='CIFAR100' or datatype=='MNIST' or datatype =='FashionMNIST' or datatype == 'CINIC10'):
-    
+
         if(datatype=='CIFAR10'):
 
             dataset_train_global = datasets.CIFAR10('./data/cifar10', train=True, download=True, transform=trans_cifar)
             dataset_test_global = datasets.CIFAR10('./data/cifar10', train=False, download=True, transform=trans_cifar)
-                
+
         if(datatype=='CINIC10'):
             cinic_mean = [0.47889522, 0.47227842, 0.43047404]
             cinic_std = [0.24205776, 0.23828046, 0.25874835]
@@ -160,25 +162,32 @@ def get_dataset(datatype, n_client, n_c, alpha, partition_equal=True):
 
         elif(datatype=='CIFAR100'):
 
-            dataset_train_global = datasets.CIFAR100('./data/cifar100', train=True, download=True, transform=trans_cifar)
-            dataset_test_global = datasets.CIFAR100('./data/cifar100', train=False, download=True, transform=trans_cifar)
+            dataset_train_global = datasets.CIFAR100('./data/cifar100', train=True, download=True,
+                                                     transform=trans_cifar)
+            dataset_test_global = datasets.CIFAR100('./data/cifar100', train=False, download=True,
+                                                    transform=trans_cifar)
+            try:
+                with open("./data/cifar100/train_100_0.30.pkl", "rb") as file:
+                    print("Read the files ..")
+                    train_datasets = pickle.load(file)
+                    return train_datasets, dataset_test_global
+            except FileNotFoundError:
+                pass
 
-        elif(datatype=='MNIST'):
+        elif (datatype == 'MNIST'):
 
             dataset_train_global = datasets.MNIST('./data/mnist', train=True, download=True, transform=trans_mist)
             dataset_test_global = datasets.MNIST('./data/mnist', train=False, download=True, transform=trans_mnist)
 
-        elif(datatype=='FashionMNIST'):
+        elif (datatype == 'FashionMNIST'):
 
-
-            dataset_train_global = datasets.FashionMNIST('./data/fashionmnist', train=True, download=True, transform=trans_fashionmist)
-            dataset_test_global = datasets.FashionMNIST('./data/fashionmnist', train=False, download=True, transform=trans_fashionmnist)
-
-
-        
+            dataset_train_global = datasets.FashionMNIST('./data/fashionmnist', train=True, download=True,
+                                                         transform=trans_fashionmist)
+            dataset_test_global = datasets.FashionMNIST('./data/fashionmnist', train=False, download=True,
+                                                        transform=trans_fashionmnist)
 
         train_loader = DataLoader(dataset_train_global, batch_size=len(dataset_train_global))
-        test_loader  = DataLoader(dataset_test_global, batch_size=len(dataset_test_global))
+        test_loader = DataLoader(dataset_test_global, batch_size=len(dataset_test_global))
 
         X_train = next(iter(train_loader))[0].numpy()
         Y_train = next(iter(train_loader))[1].numpy()
@@ -186,31 +195,24 @@ def get_dataset(datatype, n_client, n_c, alpha, partition_equal=True):
         X_test = next(iter(test_loader))[0].numpy()
         Y_test = next(iter(test_loader))[1].numpy()
 
-
-        if(partition_equal == True):
+        if (partition_equal == True):
             inds = getDirichletData_equal(Y_train, n_client, alpha, n_c)
         else:
             inds = getDirichletData(Y_train, n_client, alpha, n_c)
 
-
-        dataset_train=[]
+        dataset_train = []
         dataset_test = []
 
-        len_test = int(len(X_test)/n_client)
+        len_test = int(len(X_test) / n_client)
 
-
-        for (i,ind) in enumerate(inds):
-
-
+        for (i, ind) in enumerate(inds):
             ind = inds[i]
-            
+
             x = X_train[ind]
             y = Y_train[ind]
-                
 
-            x_test = X_test[i*len_test:(i+1)*len_test]
-            y_test = Y_test[i*len_test:(i+1)*len_test]
-            
+            x_test = X_test[i * len_test:(i + 1) * len_test]
+            y_test = Y_test[i * len_test:(i + 1) * len_test]
 
             n_i = len(ind)
 
@@ -220,92 +222,12 @@ def get_dataset(datatype, n_client, n_c, alpha, partition_equal=True):
             x_test = torch.Tensor(x_test)
             y_test = torch.LongTensor(y_test)
 
+            print("Client ", i, " Training examples-", len(x_train), " Test examples-", len(x_test))
 
-            print ("Client ", i, " Training examples-" , len(x_train), " Test examples-", len(x_test))
-
-            dataset_train_torch = TensorDataset(x_train,y_train)
-            dataset_test_torch = TensorDataset(x_test,y_test)
+            dataset_train_torch = TensorDataset(x_train, y_train)
+            dataset_test_torch = TensorDataset(x_test, y_test)
 
             dataset_train.append(dataset_train_torch)
             dataset_test.append(dataset_test_torch)
-    
-
-    if(datatype=='EMNIST'):
-
-      
-      with ZipFile('emnist_dataset_umifa.npy.zip', 'r') as f:
-        f.extractall()
-
-
-      emnist_data = np.load('emnist_dataset_umifa.npy', allow_pickle= True).item()
-      dataset_train_emnist = emnist_data['dataset_train']
-      dataset_test_emnist = emnist_data['dataset_test']
-      dict_users_emnist = emnist_data['dict_users']
-      emnist_clients = list(dict_users_emnist.keys())
-
-      x_train = dataset_train_emnist[:][0]
-      y_train = dataset_train_emnist[:][1]
-      x_train = x_train[:,None]
-
-      dataset_train_emnist_new = TensorDataset(x_train,y_train)
-
-      x_test = dataset_test_emnist[:][0]
-      y_test = dataset_test_emnist[:][1]
-      x_test = x_test[:,None]
-
-      dataset_test_emnist_new = TensorDataset(x_test,y_test)
-
-      dataset_test_global = dataset_test_emnist_new
-
-      dataset_train=[]
-      dataset_test = []
-
-      n = len(emnist_clients)
-
-      len_test = int(len(dataset_test_emnist)/n)
-
-
-      ctr = 0
-
-      for i in range(n):
-          
-        ind = dict_users_emnist[i]
-
-        x_train = dataset_train_emnist_new[ind][0]
-        y_train = dataset_train_emnist_new[ind][1]
-
-        x_test = dataset_test_emnist_new[i*len_test:(i+1)*len_test][0]
-        y_test = dataset_test_emnist_new[i*len_test:(i+1)*len_test][1]
-
-        
-
-        n_i = len(ind)
-
-        dataset_train_torch = TensorDataset(x_train,y_train)
-        dataset_test_torch = TensorDataset(x_test,y_test)
-
-
-        dataset_train.append(dataset_train_torch)
-        dataset_test.append(dataset_test_torch)
-
 
     return dataset_train, dataset_test_global
-    
-
-
-
-
-
-
-
-    
-
-    
-
-
-
-
-
-
-
-
